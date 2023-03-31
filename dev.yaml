@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stedi-shyam-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stedi-shyam-dev
+  template:
+    metadata:
+      labels:
+        app: stedi-shyam-dev
+    spec:
+      containers:
+        - name: stedi-shyam-dev
+          image: gcr.io/cheese-empanadas/shyam-stedi-api
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secrets-shyam
+                  key: REDIS_PASSWORD
+            - name: REDIS_HOST
+              value: "redis-stedi-prod"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_DB
+              value: "0"
+            - name: KAFKA_BROKER
+              value: "localhost:9092"
+          ports:
+            - containerPort: 443
+          resources:
+            limits:
+              cpu: ".5"
+              memory: "500Mi"
+            requests:
+              cpu: ".25"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 4567
+            initialDelaySeconds: 10
+            periodSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stedi-shyam-nodeport
+spec:
+  selector:
+    app: stedi-shyam-dev
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 4567
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: stedi-shyam-certificate3
+spec:
+  domains:
+    - shyamkumar.cit262.com
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: stedi-shyam-ingress
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: stedi-shyam-public
+    networking.gke.io/managed-certificate: stedi-shyam-certificate3
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: stedi-shyam-nodeport
+                port:
+                  number: 80

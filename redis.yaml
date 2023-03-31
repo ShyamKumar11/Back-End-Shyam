@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-stedi-shyam
+spec:
+  selector:
+    matchLabels:
+      app: redis-stedi-shyam #must match spec.template.metadata.lables
+  serviceName: redis-stedi-shyam
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: redis-stedi-shyam
+    spec:
+      containers:
+        - name: redis-stedi-shyam
+          image: redis:7.0.5-alpine
+          imagePullPolicy: Always
+          args:
+            [
+              "--requirepass",
+              "${REDIS_PASSWORD}",
+              "--appendonly",
+              "yes",
+              "--save",
+              "900",
+              "1",
+              "--save",
+              "30",
+              "2",
+            ]
+          ports:
+            - containerPort: 6379
+              name: redis
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret-shyam
+                  key: REDIS_PASSWORD
+          volumeMounts:
+            - name: redis-shyam-volume
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-shyam-volume
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-stedi-shyam
+spec:
+  ports:
+    - port: 6379
+      name: redis
+  clusterIP: None
+  selector:
+    app: redis-stedi-shyam
